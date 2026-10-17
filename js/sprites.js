@@ -293,3 +293,61 @@ export function drawPoof(ctx, x, y, t) {
     ctx.fillRect(Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r), 2, 2);
   }
 }
+
+// --- stage 4: ice bolts ----------------------------------------------------------
+// A frozen bolt plugged into the ledge; x = center, y = ledge surface.
+export function drawBolt(ctx, x, y, t) {
+  x = Math.round(x); y = Math.round(y);
+  ctx.fillStyle = '#ffcf4a';
+  ctx.fillRect(x - 4, y - 1, 8, 9);
+  ctx.fillStyle = '#c98a1a';
+  ctx.fillRect(x - 4, y + 7, 8, 1);
+  ctx.fillRect(x + 3, y - 1, 1, 9);
+  ctx.fillStyle = '#fff6c8';
+  ctx.fillRect(x - 3, y, 2, 2);
+  ctx.fillStyle = '#8a5a10';
+  ctx.fillRect(x - 1, y + 2, 2, 4);
+  if (((t >> 4) & 3) === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 1, y, 1, 1); }
+}
+
+// --- bonus items (x = center, y = surface they sit on) ---------------------------
+export function drawScarf(ctx, x, y) {
+  x = Math.round(x); y = Math.round(y);
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = i % 2 ? '#ffffff' : '#e83a4a';
+    ctx.fillRect(x - 6 + i * 3, y - 6, 3, 3);
+  }
+  ctx.fillStyle = '#e83a4a'; ctx.fillRect(x + 3, y - 3, 3, 3);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 3, y - 1, 1, 1); ctx.fillRect(x + 5, y - 1, 1, 1);
+}
+
+export function drawMittens(ctx, x, y) {
+  x = Math.round(x); y = Math.round(y);
+  for (const ox of [-6, 1]) {
+    ctx.fillStyle = '#4aa3ff';
+    ctx.fillRect(x + ox, y - 7, 5, 6);
+    ctx.fillRect(x + ox - 1, y - 5, 1, 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x + ox, y - 2, 5, 2);
+  }
+}
+
+export function drawFish(ctx, x, y) {
+  x = Math.round(x); y = Math.round(y);
+  ctx.fillStyle = '#b9c8d8';
+  ctx.fillRect(x - 5, y - 5, 8, 4);
+  ctx.fillRect(x - 4, y - 6, 6, 1);
+  ctx.fillRect(x - 4, y - 1, 6, 1);
+  ctx.fillRect(x + 3, y - 6, 2, 2); ctx.fillRect(x + 3, y - 2, 2, 2);
+  ctx.fillStyle = '#7d8ea3'; ctx.fillRect(x - 3, y - 3, 5, 1);
+  ctx.fillStyle = '#101830'; ctx.fillRect(x - 4, y - 4, 1, 1);
+}
+
+// Little stars circling a dazed head.
+export function drawDizzy(ctx, x, y, t) {
+  ctx.fillStyle = '#ffd84a';
+  for (let i = 0; i < 3; i++) {
+    const a = t / 10 + i * 2.1;
+    ctx.fillRect(Math.round(x + Math.cos(a) * 12), Math.round(y + Math.sin(a) * 3), 2, 2);
+  }
+}

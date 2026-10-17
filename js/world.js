@@ -17,7 +17,8 @@ export function surfaceY(p, x) {
   return Math.round(avg + (stepped - avg) * t);
 }
 
-export const inRange = (p, x) => x >= p.x0 && x <= p.x1;
+// On the ledge and not over a gap (stage 4's pulled ice bolts leave gaps).
+export const inRange = (p, x) => x >= p.x0 && x <= p.x1 && !(p.gaps && p.gaps.some((g) => x > g.x0 && x < g.x1));
 
 // Direction a ball rolls on a platform: downhill.
 export const downDir = (p) => (p.yR > p.yL ? 1 : -1);
@@ -42,6 +43,24 @@ const ICE_MARK = '#3d9fd8';
 const ICE_DARK = '#1d5f99';
 
 export function drawPlatform(ctx, p) {
+  if (p.gaps && p.gaps.length) {
+    ctx.save();
+    ctx.beginPath();
+    let x = p.x0;
+    for (const g of [...p.gaps].sort((a, b) => a.x0 - b.x0)) {
+      ctx.rect(x, 0, g.x0 - x, 300);
+      x = g.x1;
+    }
+    ctx.rect(x, 0, p.x1 - x, 300);
+    ctx.clip();
+    drawLedge(ctx, p);
+    ctx.restore();
+  } else {
+    drawLedge(ctx, p);
+  }
+}
+
+function drawLedge(ctx, p) {
   for (let x = p.x0; x < p.x1; x += SEG) {
     const w = Math.min(SEG, p.x1 - x);
     const y = surfaceY(p, x + 1);

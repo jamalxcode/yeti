@@ -1,6 +1,7 @@
 import stage1 from './stage1.js';
+import stage4 from './stage4.js';
 
-export const STAGES = { 1: stage1 };
+export const STAGES = { 1: stage1, 4: stage4 };
 
 // Arcade-style stage order per level: 1 = ice ledges, 2 = fish factory, 3 = ski lifts, 4 = ice-bolt peak.
 const SEQUENCES = [

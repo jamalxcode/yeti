@@ -6,7 +6,7 @@ import { STAGES, stageSequence } from './stages/index.js';
 export const W = 224;
 export const H = 256;
 
-const GAME_TITLE = ['BARREL', 'CLIMBER'];
+const GAME_TITLE = 'YETI';
 const WALK = 0.9;
 const CLIMB = 0.62;
 const JUMP_V = 1.7;
@@ -80,6 +80,7 @@ export class Game {
       chick: { x: L.chick.x, y: surfaceY(platforms[L.chick.p], L.chick.x), visible: true },
     };
     this.world = w;
+    if (stage.setup) stage.setup(w, this);
     this.resetStage();
   }
 
@@ -87,7 +88,8 @@ export class Game {
   resetStage() {
     const w = this.world;
     const L = w.layout;
-    w.items = L.items.map((it) => ({ ...it, y: surfaceY(w.platforms[it.p], it.x) - 12, taken: false }));
+    // the shovel floats at jump height; bonus items sit on the ledge
+    w.items = L.items.map((it) => ({ ...it, y: surfaceY(w.platforms[it.p], it.x) - (it.type === 'shovel' ? 12 : 0), taken: false }));
     w.seals = [];
     w.fx = [];
     w.popups = [];
@@ -128,11 +130,17 @@ export class Game {
     if (x !== undefined) this.world.popups.push({ x, y, text: String(n), t: 60 });
   }
 
-  spawnSeal() {
+  // From the seal hole (hopping out), or popping up at a given spot.
+  spawnSeal(at) {
     const w = this.world;
     if (w.seals.length >= MAX_SEALS) return;
-    const h = w.hole;
-    w.seals.push({ x: h.x, y: surfaceY(w.platforms[h.p], h.x), p: h.p, dir: 1, mode: 'hop', vy: -2.2, t: 0, cd: 30 });
+    if (at) {
+      const dir = this.player.x < at.x ? -1 : 1;
+      w.seals.push({ x: at.x, y: surfaceY(w.platforms[at.p], at.x), p: at.p, dir, mode: 'appear', t: 0, cd: 30 });
+    } else {
+      const h = w.hole;
+      w.seals.push({ x: h.x, y: surfaceY(w.platforms[h.p], h.x), p: h.p, dir: 1, mode: 'hop', vy: -2.2, t: 0, cd: 30 });
+    }
     this.sfx.play('seal');
   }
 
@@ -201,6 +209,7 @@ export class Game {
     this.updatePlayer();
     if (this.state !== 'play') return;
     w.stage.update(w, this);
+    if (w.stage.cleared && w.stage.cleared(w)) { this.startClear(); return; }
     this.updateSeals();
     this.updateItems();
     this.checkHits();
@@ -314,7 +323,9 @@ export class Game {
     for (const s of w.seals) {
       s.t++;
       if (s.cd > 0) s.cd--;
-      if (s.mode === 'hop') {
+      if (s.mode === 'appear') {
+        if (s.t >= 45) s.mode = 'walk';
+      } else if (s.mode === 'hop') {
         s.vy += 0.12; s.y += s.vy; s.x += 0.6;
         const g = surfaceY(w.platforms[s.p], s.x);
         if (s.vy > 0 && s.y >= g) { s.y = g; s.mode = 'walk'; }
@@ -330,6 +341,7 @@ export class Game {
         min = Math.max(min, 6); max = Math.min(max, W - 6);
         if (s.x < min) { s.x = min; s.dir = 1; }
         if (s.x > max) { s.x = max; s.dir = -1; }
+        if (!inRange(p, s.x)) { s.x -= s.dir * spd; s.dir = -s.dir; }
         s.y = surfaceY(p, s.x);
         if (s.cd <= 0) {
           for (const L of w.ladders) {
@@ -365,6 +377,9 @@ export class Game {
         if (it.type === 'shovel') {
           pl.shovel = SHOVEL_TIME;
           this.sfx.play('pickup');
+        } else {
+          this.addScore([300, 500, 800][Math.min(this.level, 3) - 1], it.x, it.y - 16);
+          this.sfx.play('score');
         }
       }
     }
@@ -392,11 +407,11 @@ export class Game {
     };
     if (sb) {
       for (const b of w.stage.hazards(w)) if (!b.dead && overlap(sb, ballBox(b))) smash(b, b.kind === 'ice' ? (Math.random() < 0.5 ? 500 : 800) : 300);
-      for (const s of w.seals) if (!s.dead && overlap(sb, sealBox(s))) smash(s, Math.random() < 0.5 ? 500 : 800);
+      for (const s of w.seals) if (!s.dead && s.mode !== 'appear' && overlap(sb, sealBox(s))) smash(s, Math.random() < 0.5 ? 500 : 800);
     }
     const box = playerBox(pl);
     for (const b of w.stage.hazards(w)) if (!b.dead && overlap(box, ballBox(b))) { this.die(); return; }
-    for (const s of w.seals) if (!s.dead && overlap(box, sealBox(s))) { this.die(); return; }
+    for (const s of w.seals) if (!s.dead && s.mode !== 'appear' && overlap(box, sealBox(s))) { this.die(); return; }
     const y = w.yeti;
     if (overlap(box, { x0: y.x - 13, x1: y.x + 13, y0: y.y - 30, y1: y.y })) this.die();
   }
@@ -467,14 +482,20 @@ export class Game {
 
   startClear() {
     const w = this.world;
+    w.popups = [];
+    w.flyingBolts = [];
     this.addScore(this.bonus, this.player.x, this.player.y - 24);
     this.sfx.play('clear');
     this.player.state = 'walk';
-    this.clear = { from: { x: w.yeti.x, y: w.yeti.y } };
+    this.clear = { from: { x: w.yeti.x, y: w.yeti.y }, kind: w.stage.clearKind || 'carry', debris: [] };
+    w.seals = [];
     this.setState('clear');
   }
 
   updateClear() {
+    for (const p of this.world.popups) { p.t--; p.y -= 0.2; }
+    this.world.popups = this.world.popups.filter((p) => p.t > 0);
+    if (this.clear.kind === 'fall') { this.updateClearFall(); return; }
     const w = this.world;
     const y = w.yeti;
     const c = this.clear;
@@ -492,6 +513,45 @@ export class Game {
       y.y -= 1.2;
     }
     if (t > 240) this.nextStage();
+  }
+
+  // Last stage of a level: the ledges give way, the yeti tumbles down and the
+  // penguin is reunited with the chick on top.
+  updateClearFall() {
+    const w = this.world;
+    const y = w.yeti;
+    const c = this.clear;
+    const t = this.t;
+    if (t < 50) {
+      y.pose = 'roar';
+      y.x = c.from.x + ((t >> 1) & 1 ? 1 : -1);
+      this.shake = 2;
+    } else if (t === 50) {
+      y.x = c.from.x;
+      y.falling = true;
+      y.vy = -1.5;
+      this.sfx.play('stomp');
+      this.shake = 10;
+      // the middle of every bolted ledge drops away
+      w.items = [];
+      for (let i = 1; i < w.platforms.length - 1; i++) {
+        const p = w.platforms[i];
+        p.gaps.push({ x0: 60, x1: 164 });
+        c.debris.push({ x0: 60, x1: 164, yL: p.yL, yR: p.yL, vy: rand(-1, 0) });
+      }
+      // penguin meets the chick on the perch
+      const perch = w.platforms[w.platforms.length - 1];
+      Object.assign(this.player, { x: perch.x0 + 6, y: perch.yL, p: w.platforms.length - 1, state: 'walk', facing: 1, walkT: 0, shovel: 0 });
+    } else if (y.falling) {
+      y.vy = Math.min(y.vy + 0.15, 4);
+      y.y += y.vy;
+      const ground = w.platforms[0].yL;
+      if (y.y >= ground) { y.y = ground; y.falling = false; y.dazed = true; this.shake = 8; this.sfx.play('stomp'); }
+    }
+    for (const d of c.debris) { d.vy += 0.15; d.yL += d.vy; d.yR = d.yL; }
+    c.debris = c.debris.filter((d) => d.yL < H + 10);
+    if (t === 120) this.sfx.play('clear');
+    if (t > 330) { y.dazed = false; this.nextStage(); }
   }
 
   // --- drawing ---------------------------------------------------------------------
@@ -549,24 +609,49 @@ export class Game {
       drawLadder(ctx, { x: 116, yTop: 40, yBot: H, broken: false });
     }
     for (const p of w.platforms) drawPlatform(ctx, p);
-    const hp = w.platforms[w.hole.p];
-    S.drawSealHole(ctx, w.hole.x, surfaceY(hp, w.hole.x), this.frame);
-    for (const it of w.items) if (!it.taken && it.type === 'shovel') S.drawShovelItem(ctx, it.x, it.y, this.frame);
+    if (this.state === 'clear') for (const d of this.clear.debris) drawPlatform(ctx, d);
+    if (w.hole) S.drawSealHole(ctx, w.hole.x, surfaceY(w.platforms[w.hole.p], w.hole.x), this.frame);
+    for (const it of w.items) {
+      if (it.taken) continue;
+      if (it.type === 'shovel') S.drawShovelItem(ctx, it.x, it.y, this.frame);
+      else if (it.type === 'scarf') S.drawScarf(ctx, it.x, it.y);
+      else if (it.type === 'mittens') S.drawMittens(ctx, it.x, it.y);
+      else if (it.type === 'fish') S.drawFish(ctx, it.x, it.y);
+    }
 
     // chick and its call for help
     const ch = w.chick;
     if (ch.visible) {
       S.drawChick(ctx, ch.x, ch.y, this.frame, this.state !== 'clear');
-      if (this.state === 'play' && (this.frame >> 6) % 2 === 0) drawText(ctx, 'HELP!', ch.x + 8, ch.y - 22, '#ffd84a');
+      if (this.state === 'play' && (this.frame >> 6) % 2 === 0) {
+        const hx = Math.min(ch.x + 8, W - 32);
+        drawText(ctx, 'HELP!', hx, ch.y - 22, '#ffd84a');
+      }
     }
-    if (this.state === 'clear') S.drawHeart(ctx, (pl.x + ch.x) / 2, ch.y - 22, this.t >= 60);
+    if (this.state === 'clear') {
+      if (this.clear.kind === 'fall') { if (this.t >= 70) S.drawHeart(ctx, (pl.x + ch.x) / 2, ch.y - 22); }
+      else S.drawHeart(ctx, (pl.x + ch.x) / 2, ch.y - 22, this.t >= 60);
+    }
 
     w.stage.draw(ctx, w, this);
     const y = w.yeti;
-    S.drawYeti(ctx, y.x, y.y, y.pose, this.frame, y.facing);
+    if (y.falling || y.dazed) {
+      // upside down, head first
+      ctx.save();
+      ctx.translate(Math.round(y.x), Math.round(y.y) - 16);
+      ctx.scale(1, -1);
+      S.drawYeti(ctx, 0, 16, 'roar', this.frame, 1);
+      ctx.restore();
+      if (y.dazed) S.drawDizzy(ctx, y.x, y.y - 4, this.frame);
+    } else {
+      S.drawYeti(ctx, y.x, y.y, y.pose, this.frame, y.facing);
+    }
     if (y.pose === 'carry') S.drawChick(ctx, y.x, y.y - 32, this.frame, true);
 
-    for (const s of w.seals) S.drawSeal(ctx, s.x, s.y, s.dir, s.t);
+    for (const s of w.seals) {
+      if (s.mode === 'appear' && (s.t >> 2) & 1) continue; // flicker while popping up
+      S.drawSeal(ctx, s.x, s.y, s.dir, s.t);
+    }
     this.drawPlayer(ctx);
     for (const f of w.fx) S.drawPoof(ctx, f.x, f.y, f.t);
     for (const p of w.popups) drawTextC(ctx, p.text, p.x, p.y, '#ffffff');
@@ -619,8 +704,8 @@ export class Game {
 
   drawTitle(ctx) {
     const t = this.t;
-    drawTextC(ctx, GAME_TITLE[0], W / 2, 30, '#7fd4ff', 3);
-    drawTextC(ctx, GAME_TITLE[1], W / 2, 56, '#eef8ff', 3);
+    drawTextC(ctx, GAME_TITLE, W / 2 + 2, 34, '#1d5f99', 6);
+    drawTextC(ctx, GAME_TITLE, W / 2, 32, '#eef8ff', 6);
     drawTextC(ctx, 'A PENGUIN VS YETI ADVENTURE', W / 2, 84, '#ffd84a');
     // little scene
     ctx.fillStyle = '#6cc9f2'; ctx.fillRect(40, 150, 144, 6);

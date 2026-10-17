@@ -1,4 +1,4 @@
-# Yeti (Barrel Climber)
+# Yeti
 
 An arcade-style platformer that runs in the browser. A penguin climbs an icy
 mountain to rescue a baby chick from a snowball-throwing yeti.
@@ -17,7 +17,9 @@ Play: **https://yeti.sala.company**
 
 ## How to play
 
-- Climb the ledges and reach the chick at the top before the bonus timer runs out.
+- Stage 1: climb the ledges and reach the chick at the top before the bonus timer runs out.
+- Stage 4: walk or jump over all 8 ice bolts (100 pts each) to bring the yeti down.
+- Grab the scarf, mittens and fish for 300 / 500 / 800 pts (by level).
 - Jump over snowballs (100 pts) and seals. Grab a snow shovel to smash them (300–800 pts).
 - Blue ice boulders that reach the seal hole bring out an angry seal.
 - Don't fall more than a short hop. Extra life at 10,000 points.
@@ -29,7 +31,7 @@ Play: **https://yeti.sala.company**
 | Ice ledges | 1000 FT | playable |
 | Frozen fish factory | 2000 FT | coming |
 | Ski-lift elevators | 3000 FT | coming |
-| Ice-bolt peak | 4000 FT | coming |
+| Ice-bolt peak | 4000 FT | playable |
 
 ## Development
 
