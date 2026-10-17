@@ -30,7 +30,7 @@ export function buildLadders(platforms, defs) {
     const lo = platforms[d.lower];
     return {
       id, x: d.x, cx, upper: d.upper, lower: d.lower,
-      broken: !!d.broken, noSeal: !!d.noSeal,
+      broken: !!d.broken, noSeal: !!d.noSeal, retract: !!d.retract, retracted: false,
       get yTop() { return surfaceY(up, cx); },
       get yBot() { return surfaceY(lo, cx); },
     };

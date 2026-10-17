@@ -38,7 +38,7 @@ export default {
       const span = s.bottom - s.top;
       for (let k = 0; k < LIFTS_PER_SHAFT; k++) {
         const y = s.top + span * (k + 0.5) / LIFTS_PER_SHAFT;
-        platforms.push({ x0: s.x0, x1: s.x1, yL: y, yR: y, lift: si });
+        platforms.push({ x0: s.x0, x1: s.x1, yL: y, yR: y, lift: si, dynamic: true });
       }
     }
     return {

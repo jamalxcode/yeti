@@ -261,10 +261,11 @@ export class Game {
         return;
       }
       if (!pl.shovel && (inp.up || inp.down)) {
-        const L = w.ladders.find((L) => Math.abs(pl.x - L.cx) <= 3 &&
+        const L = w.ladders.find((L) => !L.retracted && Math.abs(pl.x - L.cx) <= 3 &&
           ((inp.up && L.lower === pl.p) || (inp.down && L.upper === pl.p && !L.broken)));
         if (L) { pl.state = 'climb'; pl.ladder = L; pl.x = L.cx; return; }
       }
+      if (p.belt) pl.x += p.belt; // conveyor belts carry the penguin
       if (mx) {
         pl.facing = mx;
         pl.x += mx * WALK;
@@ -347,7 +348,7 @@ export class Game {
           if (pl.p === s.p && pl.state === 'walk' && Math.random() < 0.7) s.dir = Math.sign(pl.x - s.x) || s.dir;
           else if (Math.random() < 0.3) s.dir = -s.dir;
         }
-        s.x += s.dir * spd;
+        s.x += s.dir * spd + (p.belt || 0);
         let min = p.x0 + 5, max = p.x1 - 5;
         for (const wall of w.walls) if (wall.p === s.p) min = Math.max(min, wall.min);
         min = Math.max(min, 6); max = Math.min(max, W - 6);
@@ -357,7 +358,7 @@ export class Game {
         s.y = surfaceY(p, s.x);
         if (s.cd <= 0) {
           for (const L of w.ladders) {
-            if (L.broken || L.noSeal || Math.abs(s.x - L.cx) > spd) continue;
+            if (L.broken || L.noSeal || L.retracted || Math.abs(s.x - L.cx) > spd) continue;
             if (L.lower === s.p && pl.y < s.y - 8 && Math.random() < 0.6) {
               s.mode = 'climb'; s.ladder = L; s.vyDir = -1; s.x = L.cx; break;
             }
@@ -603,7 +604,7 @@ export class Game {
   // pulled, so they're painted together into one offscreen layer and reused.
   drawLevelLayer(ctx) {
     const w = this.world;
-    const fixed = w.platforms.filter((p) => p.lift === undefined); // moving lifts are drawn live
+    const fixed = w.platforms.filter((p) => !p.dynamic); // lifts and belts are drawn live
     const key = this.res + '|' + fixed.map((p) => (p.t ?? 1) + ':' + (p.gaps ? p.gaps.length : 0)).join(',');
     if (w.layerKey !== key) {
       const c = w.layer || document.createElement('canvas');
@@ -613,7 +614,7 @@ export class Game {
       g.setTransform(this.res, 0, 0, this.res, 0, 0);
       drawScenery(g, this.res, 0);
       if (w.stage.drawStatic) w.stage.drawStatic(g, w);
-      for (const L of w.ladders) drawLadder(g, L);
+      for (const L of w.ladders) if (!L.retract) drawLadder(g, L);
       for (const p of fixed) drawPlatform(g, p);
       w.layer = c;
       w.layerKey = key;

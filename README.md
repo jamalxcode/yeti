@@ -18,6 +18,7 @@ Play: **https://yeti.sala.company**
 ## How to play
 
 - Stage 1: climb the ledges and reach the chick at the top before the bonus timer runs out.
+- Stage 2: conveyor belts carry you and blocks of frozen fish; some ladders slide out of reach, and the yeti paces past the ladder to the chick.
 - Stage 3: ride the ski lifts up and down (jump off before the pulley!), dodge bouncing iceballs and reach the chick.
 - Stage 4: walk or jump over all 8 ice bolts (100 pts each) to bring the yeti down.
 - Grab the scarf, mittens and fish for 300 / 500 / 800 pts (by level).
@@ -27,10 +28,12 @@ Play: **https://yeti.sala.company**
 
 ## Stages
 
+Levels follow the arcade order: level 1 plays stages 1 and 4, level 2 adds stage 3, and from level 3 on all four stages appear.
+
 | Stage | Height | Status |
 |---|---|---|
 | Ice ledges | 1000 FT | playable |
-| Frozen fish factory | 2000 FT | coming |
+| Frozen fish factory | 2000 FT | playable |
 | Ski-lift elevators | 3000 FT | playable |
 | Ice-bolt peak | 4000 FT | playable |
 
