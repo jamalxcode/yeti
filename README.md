@@ -18,6 +18,7 @@ Play: **https://yeti.sala.company**
 ## How to play
 
 - Stage 1: climb the ledges and reach the chick at the top before the bonus timer runs out.
+- Stage 3: ride the ski lifts up and down (jump off before the pulley!), dodge bouncing iceballs and reach the chick.
 - Stage 4: walk or jump over all 8 ice bolts (100 pts each) to bring the yeti down.
 - Grab the scarf, mittens and fish for 300 / 500 / 800 pts (by level).
 - Jump over snowballs (100 pts) and seals. Grab a snow shovel to smash them (300–800 pts).
@@ -30,7 +31,7 @@ Play: **https://yeti.sala.company**
 |---|---|---|
 | Ice ledges | 1000 FT | playable |
 | Frozen fish factory | 2000 FT | coming |
-| Ski-lift elevators | 3000 FT | coming |
+| Ski-lift elevators | 3000 FT | playable |
 | Ice-bolt peak | 4000 FT | playable |
 
 ## Development

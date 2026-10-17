@@ -13,7 +13,7 @@ const CLIMB = 0.62;
 const JUMP_V = 1.7;
 const GRAV = 0.106;
 const MAX_FALL = 3;
-const FALL_DEATH = 20;
+const FALL_DEATH = 16; // landing further below the takeoff point than this is fatal
 const SHOVEL_TIME = 600;
 const START_LIVES = 3;
 const EXTRA_LIFE_AT = 10000;
@@ -113,7 +113,7 @@ export class Game {
     const sp = L.start;
     this.player = {
       x: sp.x, y: surfaceY(w.platforms[sp.p], sp.x), p: sp.p,
-      state: 'walk', facing: 1, vx: 0, vy: 0, apex: 0,
+      state: 'walk', facing: 1, vx: 0, vy: 0, fromY: 0,
       walkT: 0, climbT: 0, shovel: 0, jumped: [], dead: false,
     };
     this.bonus = Math.min(4000 + 1000 * this.level, 8000);
@@ -147,7 +147,7 @@ export class Game {
     const w = this.world;
     if (w.seals.length >= MAX_SEALS) return;
     if (at) {
-      const dir = this.player.x < at.x ? -1 : 1;
+      const dir = this.player && this.player.x < at.x ? -1 : 1;
       w.seals.push({ x: at.x, y: surfaceY(w.platforms[at.p], at.x), p: at.p, dir, mode: 'appear', t: 0, cd: 30 });
     } else {
       const h = w.hole;
@@ -255,7 +255,7 @@ export class Game {
         pl.vy = -JUMP_V;
         pl.vx = mx * WALK;
         if (mx) pl.facing = mx;
-        pl.apex = pl.y;
+        pl.fromY = pl.y;
         pl.jumped = [];
         this.sfx.play('jump');
         return;
@@ -275,7 +275,7 @@ export class Game {
       pl.x = Math.max(6, Math.min(W - 6, pl.x));
       for (const wall of w.walls) if (wall.p === pl.p && pl.x < wall.min) pl.x = wall.min;
       if (!inRange(p, pl.x)) {
-        pl.state = 'air'; pl.vy = 0; pl.vx = mx * 0.5; pl.apex = pl.y; pl.jumped = [];
+        pl.state = 'air'; pl.vy = 0; pl.vx = mx * 0.5; pl.fromY = pl.y; pl.jumped = [];
       } else {
         pl.y = surfaceY(p, pl.x);
       }
@@ -285,7 +285,6 @@ export class Game {
       pl.x += pl.vx;
       if (pl.x < 6 || pl.x > W - 6) { pl.x = Math.max(6, Math.min(W - 6, pl.x)); pl.vx = -pl.vx; }
       pl.y += pl.vy;
-      pl.apex = Math.min(pl.apex, pl.y);
       // count hazards jumped over
       for (const h of this.hazardList()) {
         if (!pl.jumped.includes(h) && Math.abs(h.x - pl.x) < 7 && h.y > pl.y && h.y - pl.y < 26) pl.jumped.push(h);
@@ -295,9 +294,10 @@ export class Game {
           const p = w.platforms[i];
           if (!inRange(p, pl.x)) continue;
           const s = surfaceY(p, pl.x);
-          if (prevY <= s && pl.y >= s) {
+          // a rising lift can pass the feet between frames, so allow a little slack
+          if (prevY <= s + (p.lift !== undefined ? 2 : 0) && pl.y >= s) {
             pl.y = s; pl.p = i; pl.state = 'walk';
-            if (s - pl.apex > FALL_DEATH) { this.die(); return; }
+            if (s - pl.fromY > FALL_DEATH) { this.die(); return; }
             this.sfx.play('land');
             const n = pl.jumped.filter((h) => !h.dead).length;
             if (n) { this.addScore([0, 100, 300, 500][Math.min(n, 3)], pl.x, pl.y - 20); this.sfx.play('score'); }
@@ -603,7 +603,8 @@ export class Game {
   // pulled, so they're painted together into one offscreen layer and reused.
   drawLevelLayer(ctx) {
     const w = this.world;
-    const key = this.res + '|' + w.platforms.map((p) => (p.t ?? 1) + ':' + (p.gaps ? p.gaps.length : 0)).join(',');
+    const fixed = w.platforms.filter((p) => p.lift === undefined); // moving lifts are drawn live
+    const key = this.res + '|' + fixed.map((p) => (p.t ?? 1) + ':' + (p.gaps ? p.gaps.length : 0)).join(',');
     if (w.layerKey !== key) {
       const c = w.layer || document.createElement('canvas');
       c.width = W * this.res;
@@ -611,8 +612,9 @@ export class Game {
       const g = c.getContext('2d');
       g.setTransform(this.res, 0, 0, this.res, 0, 0);
       drawScenery(g, this.res, 0);
+      if (w.stage.drawStatic) w.stage.drawStatic(g, w);
       for (const L of w.ladders) drawLadder(g, L);
-      for (const p of w.platforms) drawPlatform(g, p);
+      for (const p of fixed) drawPlatform(g, p);
       w.layer = c;
       w.layerKey = key;
     }
