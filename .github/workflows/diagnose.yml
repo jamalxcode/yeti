@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          for h in yeti.sala.company yet.sala.company sala.company; do
+          for h in yeti.sala.company heliattack.sala.company; do
             echo "== $h"; dig +noall +answer "$h" ANY; dig +short "$h"; dig +short CNAME "$h"
           done
           echo "== nameservers"; dig +short NS sala.company
