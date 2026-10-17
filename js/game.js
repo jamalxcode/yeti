@@ -1,5 +1,6 @@
 import { surfaceY, inRange, buildLadders, drawPlatform, drawLadder } from './world.js';
-import { drawText, drawTextC } from './font.js';
+import { drawText, drawTextC, FAMILY } from './font.js';
+import { drawScenery, drawSnowfall } from './scenery.js';
 import * as S from './sprites.js';
 import { STAGES, stageSequence } from './stages/index.js';
 
@@ -25,6 +26,17 @@ const playerBox = (pl) => ({ x0: pl.x - 3, x1: pl.x + 3, y0: pl.y - 12, y1: pl.y
 const ballBox = (b) => ({ x0: b.x - 3, x1: b.x + 3, y0: b.y - 8, y1: b.y - 1 });
 const sealBox = (s) => ({ x0: s.x - 5, x1: s.x + 5, y0: s.y - 8, y1: s.y });
 
+// Frosted-glass box for HUD and overlays.
+function panel(ctx, x, y, w, h) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 3);
+  ctx.fillStyle = 'rgba(8,18,52,0.62)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(140,210,255,0.75)';
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+}
+
 function loadHi() {
   try { return parseInt(localStorage.getItem('yeti.hi') || '0', 10) || 0; } catch { return 0; }
 }
@@ -44,7 +56,7 @@ export class Game {
     this.frame = 0;
     this.shake = 0;
     this.flakes = Array.from({ length: 36 }, () => ({ x: rand(0, W), y: rand(0, H), s: rand(0.15, 0.5), d: rand(0, 6) }));
-    this.stars = Array.from({ length: 40 }, () => ({ x: Math.floor(rand(0, W)), y: Math.floor(rand(0, H)), b: Math.random() < 0.3 }));
+    this.res = 1; // canvas pixels per game pixel, set by main.js
     this.setState('title');
     window.yeti = this; // handy for debugging from the console
   }
@@ -565,10 +577,9 @@ export class Game {
       case 'howhigh': this.drawHowHigh(ctx); break;
       case 'gameover':
         this.drawWorld(ctx);
-        ctx.fillStyle = 'rgba(5,8,25,0.75)';
-        ctx.fillRect(40, 110, 144, 40);
-        drawTextC(ctx, 'GAME OVER', W / 2, 120, '#ff6a6a', 1);
-        drawTextC(ctx, 'SCORE ' + pad(this.score, 6), W / 2, 134, '#ffffff');
+        panel(ctx, 40, 104, 144, 48);
+        drawTextC(ctx, 'GAME OVER', W / 2, 112, '#ff6a6a', 2);
+        drawTextC(ctx, 'SCORE ' + pad(this.score, 6), W / 2, 136, '#ffffff');
         this.drawHud(ctx);
         break;
       default:
@@ -576,39 +587,45 @@ export class Game {
         this.drawHud(ctx);
         if (this.state === 'intro') drawTextC(ctx, 'PRESS JUMP TO SKIP', W / 2, 26, '#7f9cff');
         if (this.paused) {
-          ctx.fillStyle = 'rgba(5,8,25,0.75)';
-          ctx.fillRect(56, 112, 112, 28);
-          drawTextC(ctx, 'PAUSED', W / 2, 122, '#ffffff');
+          panel(ctx, 56, 110, 112, 32);
+          drawTextC(ctx, 'PAUSED', W / 2, 118, '#ffffff', 2);
         }
     }
     ctx.restore();
   }
 
   drawBackground(ctx) {
-    ctx.fillStyle = '#0a0f2c';
-    ctx.fillRect(-4, -4, W + 8, H + 8);
-    for (const s of this.stars) {
-      ctx.fillStyle = s.b && ((this.frame >> 5) + s.x) % 3 === 0 ? '#ffffff' : '#36406e';
-      ctx.fillRect(s.x, s.y, 1, 1);
+    // in-game the scenery is baked into the level layer
+    if (!this.world || this.state === 'title' || this.state === 'howhigh') drawScenery(ctx, this.res, this.frame);
+  }
+
+  // Scenery, ledges and ladders only change during the intro and when bolts are
+  // pulled, so they're painted together into one offscreen layer and reused.
+  drawLevelLayer(ctx) {
+    const w = this.world;
+    const key = this.res + '|' + w.platforms.map((p) => (p.t ?? 1) + ':' + (p.gaps ? p.gaps.length : 0)).join(',');
+    if (w.layerKey !== key) {
+      const c = w.layer || document.createElement('canvas');
+      c.width = W * this.res;
+      c.height = H * this.res;
+      const g = c.getContext('2d');
+      g.setTransform(this.res, 0, 0, this.res, 0, 0);
+      drawScenery(g, this.res, 0);
+      for (const L of w.ladders) drawLadder(g, L);
+      for (const p of w.platforms) drawPlatform(g, p);
+      w.layer = c;
+      w.layerKey = key;
     }
-    // distant peaks
-    ctx.fillStyle = '#151d47';
-    for (let x = 0; x < W; x++) {
-      const h = 40 + Math.sin(x / 23) * 14 + Math.sin(x / 9 + 1) * 5;
-      ctx.fillRect(x, H - h, 1, h);
-    }
-    ctx.fillStyle = '#c9d8ff';
-    for (const f of this.flakes) ctx.fillRect(Math.round(f.x), Math.round(f.y), 1, 1);
+    ctx.drawImage(w.layer, 0, 0, W, H);
   }
 
   drawWorld(ctx) {
     const w = this.world;
     const pl = this.player;
-    for (const L of w.ladders) drawLadder(ctx, L);
     if (this.state === 'intro' && this.intro.phase === 'climb') {
       drawLadder(ctx, { x: 116, yTop: 40, yBot: H, broken: false });
     }
-    for (const p of w.platforms) drawPlatform(ctx, p);
+    this.drawLevelLayer(ctx);
     if (this.state === 'clear') for (const d of this.clear.debris) drawPlatform(ctx, d);
     if (w.hole) S.drawSealHole(ctx, w.hole.x, surfaceY(w.platforms[w.hole.p], w.hole.x), this.frame);
     for (const it of w.items) {
@@ -638,7 +655,7 @@ export class Game {
     if (y.falling || y.dazed) {
       // upside down, head first
       ctx.save();
-      ctx.translate(Math.round(y.x), Math.round(y.y) - 16);
+      ctx.translate(y.x, y.y - 16);
       ctx.scale(1, -1);
       S.drawYeti(ctx, 0, 16, 'roar', this.frame, 1);
       ctx.restore();
@@ -654,7 +671,8 @@ export class Game {
     }
     this.drawPlayer(ctx);
     for (const f of w.fx) S.drawPoof(ctx, f.x, f.y, f.t);
-    for (const p of w.popups) drawTextC(ctx, p.text, p.x, p.y, '#ffffff');
+    for (const p of w.popups) drawTextC(ctx, p.text, p.x, p.y, '#ffe27a');
+    drawSnowfall(ctx, this.flakes);
   }
 
   drawPlayer(ctx) {
@@ -666,8 +684,7 @@ export class Game {
         S.drawPenguinRotated(ctx, 'stand', pl.x, pl.y, 1, Math.floor(t / 8) * Math.PI / 2);
       } else {
         S.drawPenguinRotated(ctx, 'stand', pl.x, pl.y + 2, 1, Math.PI / 2);
-        ctx.fillStyle = '#ffd84a';
-        ctx.fillRect(Math.round(pl.x) - 12, Math.round(pl.y) - 12, 5, 1);
+        S.drawDizzy(ctx, pl.x, pl.y - 8, this.frame);
       }
       return;
     }
@@ -687,38 +704,53 @@ export class Game {
 
   drawHud(ctx) {
     const blink = (this.frame >> 4) & 1;
-    if (blink || this.state !== 'play') drawText(ctx, '1UP', 14, 2, '#ff6a6a');
-    drawText(ctx, pad(this.score, 6), 8, 11, '#ffffff');
-    drawTextC(ctx, 'HIGH SCORE', 112, 2, '#ff6a6a');
-    drawTextC(ctx, pad(this.hi, 6), 112, 11, '#ffffff');
+    this.drawHudTop(ctx, blink || this.state !== 'play');
     for (let i = 0; i < Math.min(this.lives - 1, 8); i++) S.drawLifeIcon(ctx, 8 + i * 9, 22);
-    drawText(ctx, 'L=' + pad(this.level, 2), 182, 2, '#7fd4ff');
-    // bonus box
-    ctx.fillStyle = '#58c8ff';
-    ctx.fillRect(176, 11, 42, 1); ctx.fillRect(176, 30, 42, 1);
-    ctx.fillRect(176, 11, 1, 20); ctx.fillRect(217, 11, 1, 20);
-    drawTextC(ctx, 'BONUS', 197, 13, '#ff9a1f');
+    drawText(ctx, 'L=' + pad(this.level, 2), 184, 1, '#7fd4ff');
+    panel(ctx, 176, 11, 42, 21);
+    drawTextC(ctx, 'BONUS', 197, 13, '#ffb04a');
     const low = this.bonus <= 1000;
     drawTextC(ctx, pad(this.bonus, 4), 197, 22, low && blink ? '#ff4a4a' : '#ffffff');
   }
 
   drawTitle(ctx) {
     const t = this.t;
-    drawTextC(ctx, GAME_TITLE, W / 2 + 2, 34, '#1d5f99', 6);
-    drawTextC(ctx, GAME_TITLE, W / 2, 32, '#eef8ff', 6);
+    // icy logo
+    ctx.save();
+    ctx.font = `700 54px ${FAMILY}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.lineJoin = 'round';
+    ctx.fillStyle = 'rgba(80,170,255,0.25)';
+    for (let i = 0; i < 3; i++) ctx.fillText(GAME_TITLE, W / 2, 22 + i);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#0d2c66';
+    ctx.strokeText(GAME_TITLE, W / 2, 22);
+    const g = ctx.createLinearGradient(0, 26, 0, 70);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.5, '#bfe6ff');
+    g.addColorStop(1, '#4a9be8');
+    ctx.fillStyle = g;
+    ctx.fillText(GAME_TITLE, W / 2, 22);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; // snow on the letters
+    for (const [sx, sw] of [[-20, 16], [8, 15], [36, 9]]) {
+      ctx.beginPath(); ctx.ellipse(W / 2 + sx + sw / 2, 30.5, sw / 2, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
     drawTextC(ctx, 'A PENGUIN VS YETI ADVENTURE', W / 2, 84, '#ffd84a');
-    // little scene
-    ctx.fillStyle = '#6cc9f2'; ctx.fillRect(40, 150, 144, 6);
-    ctx.fillStyle = '#eef8ff'; ctx.fillRect(40, 150, 144, 2);
-    S.drawYeti(ctx, 150, 150, (t >> 5) % 3 === 0 ? 'roar' : 'hold', this.frame, -1);
-    S.drawChick(ctx, 176, 150, this.frame);
-    S.drawPenguin(ctx, ['walk1', 'stand', 'walk2', 'stand'][(t >> 3) & 3], 70, 150, 1);
-    S.drawSnowball(ctx, 100 + ((t * 0.5) % 30), 150, 'snow', -t / 6);
-    if ((t >> 5) & 1) drawTextC(ctx, this.input.touchMode ? 'TAP JUMP TO START' : 'PRESS START', W / 2, 172, '#ffffff');
-    drawTextC(ctx, 'HIGH SCORE ' + pad(this.hi, 6), W / 2, 104, '#ff6a6a');
-    drawTextC(ctx, 'ARROWS MOVE/CLIMB  SPACE JUMP', W / 2, 196, '#7f9cff');
-    drawTextC(ctx, 'ENTER START  P PAUSE  M MUTE', W / 2, 206, '#7f9cff');
-    drawTextC(ctx, 'RESCUE THE CHICK FROM THE YETI!', W / 2, 226, '#c9d8ff');
+    drawTextC(ctx, 'HIGH SCORE ' + pad(this.hi, 6), W / 2, 100, '#ff8a8a');
+    // little scene on a ledge
+    drawPlatform(ctx, { x0: 32, x1: 192, yL: 152, yR: 152 });
+    S.drawYeti(ctx, 152, 152, (t >> 5) % 3 === 0 ? 'roar' : 'hold', this.frame, -1);
+    S.drawChick(ctx, 178, 152, this.frame);
+    S.drawPenguin(ctx, ['walk1', 'stand', 'walk2', 'stand'][(t >> 3) & 3], 62, 152, 1);
+    S.drawSnowball(ctx, 96 + ((t * 0.5) % 34), 152, 'snow', -t / 6);
+    if ((t >> 5) & 1) drawTextC(ctx, this.input.touchMode ? 'TAP JUMP TO START' : 'PRESS START', W / 2, 176, '#ffffff', 1.4);
+    panel(ctx, 24, 196, 176, 26);
+    drawTextC(ctx, 'ARROWS MOVE / CLIMB   SPACE JUMP', W / 2, 200, '#a9c0ff');
+    drawTextC(ctx, 'ENTER START   P PAUSE   M MUTE', W / 2, 210, '#a9c0ff');
+    drawTextC(ctx, 'RESCUE THE CHICK FROM THE YETI!', W / 2, 232, '#e3ecff');
+    drawSnowfall(ctx, this.flakes);
   }
 
   drawHowHigh(ctx) {
@@ -733,8 +765,8 @@ export class Game {
     this.drawHudTop(ctx);
   }
 
-  drawHudTop(ctx) {
-    drawText(ctx, '1UP', 14, 2, '#ff6a6a');
+  drawHudTop(ctx, show1up = true) {
+    if (show1up) drawText(ctx, '1UP', 14, 2, '#ff6a6a');
     drawText(ctx, pad(this.score, 6), 8, 11, '#ffffff');
     drawTextC(ctx, 'HIGH SCORE', 112, 2, '#ff6a6a');
     drawTextC(ctx, pad(this.hi, 6), 112, 11, '#ffffff');

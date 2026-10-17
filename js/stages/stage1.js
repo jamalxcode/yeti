@@ -189,8 +189,8 @@ export default {
   draw(ctx, w) {
     // spare snowballs piled next to the yeti
     drawSnowball(ctx, 6, surfaceY(w.platforms[5], 6), 'snow', 1);
-    drawSnowball(ctx, 6, surfaceY(w.platforms[5], 6) - 9, 'snow', 2);
-    drawSnowball(ctx, 6, surfaceY(w.platforms[5], 6) - 18, 'ice', 0.5);
+    drawSnowball(ctx, 6, surfaceY(w.platforms[5], 6) - 9, 'snow', 2, false);
+    drawSnowball(ctx, 6, surfaceY(w.platforms[5], 6) - 18, 'ice', 0.5, false);
     for (const b of w.balls) drawSnowball(ctx, b.x, b.y, b.kind, b.rot);
   },
 };

@@ -5,7 +5,6 @@ import { initSprites } from './sprites.js';
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
-ctx.imageSmoothingEnabled = false;
 
 initSprites();
 const sfx = new Sfx();
@@ -33,9 +32,16 @@ function resize() {
   const availW = innerWidth - (touchUi && !portrait ? 0 : 16);
   const availH = innerHeight - reserve - 16;
   let scale = Math.min(availW / W, availH / H);
-  if (scale >= 2) scale = Math.floor(scale);
   canvas.style.width = Math.floor(W * scale) + 'px';
   canvas.style.height = Math.floor(H * scale) + 'px';
+  // Render at the screen's real pixel density for crisp art: up to 4x, or 3x on
+  // touch devices where the extra pixels aren't visible but cost battery.
+  const res = Math.max(1, Math.min(touchUi ? 3 : 4, Math.ceil(scale * (window.devicePixelRatio || 1))));
+  if (res !== game.res) {
+    game.res = res;
+    canvas.width = W * res;
+    canvas.height = H * res;
+  }
 }
 addEventListener('resize', resize);
 resize();
@@ -55,6 +61,8 @@ function frame(now) {
     game.update();
     acc -= STEP;
   }
+  ctx.setTransform(game.res, 0, 0, game.res, 0, 0);
+  ctx.imageSmoothingEnabled = true;
   game.draw(ctx);
   requestAnimationFrame(frame);
 }

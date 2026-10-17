@@ -37,10 +37,11 @@ export function buildLadders(platforms, defs) {
   });
 }
 
-const ICE_TOP = '#eef8ff';
-const ICE = '#6cc9f2';
-const ICE_MARK = '#3d9fd8';
-const ICE_DARK = '#1d5f99';
+// Fixed pseudo-random values so the ice texture never flickers.
+const hash = (n) => {
+  const v = Math.sin(n * 91.345 + 47.853) * 43758.5453;
+  return v - Math.floor(v);
+};
 
 export function drawPlatform(ctx, p) {
   if (p.gaps && p.gaps.length) {
@@ -48,10 +49,10 @@ export function drawPlatform(ctx, p) {
     ctx.beginPath();
     let x = p.x0;
     for (const g of [...p.gaps].sort((a, b) => a.x0 - b.x0)) {
-      ctx.rect(x, 0, g.x0 - x, 300);
+      ctx.rect(x, -20, g.x0 - x, 300);
       x = g.x1;
     }
-    ctx.rect(x, 0, p.x1 - x, 300);
+    ctx.rect(x, -20, p.x1 - x, 300);
     ctx.clip();
     drawLedge(ctx, p);
     ctx.restore();
@@ -60,42 +61,96 @@ export function drawPlatform(ctx, p) {
   }
 }
 
+// A slab of blue glacier ice with a snow cap and icicles, drawn per 16px step.
 function drawLedge(ctx, p) {
   for (let x = p.x0; x < p.x1; x += SEG) {
     const w = Math.min(SEG, p.x1 - x);
     const y = surfaceY(p, x + 1);
-    ctx.fillStyle = ICE;
-    ctx.fillRect(x, y, w, 8);
-    ctx.fillStyle = ICE_TOP;
-    ctx.fillRect(x, y, w, 2);
-    ctx.fillStyle = ICE_MARK;
-    for (let o = 0; o < w; o += 8) {
-      for (let k = 0; k < 4; k++) {
-        if (o + k < w) ctx.fillRect(x + o + k, y + 3 + k, 1, 1);
-        if (o + 7 - k < w) ctx.fillRect(x + o + 7 - k, y + 3 + k, 1, 1);
-      }
+    const seed = x * 7 + y;
+
+    // icicles
+    for (let i = 0; i < 2; i++) {
+      const ix = x + 3 + hash(seed + i) * (w - 6);
+      const len = 2 + hash(seed + i + 9) * 4.5;
+      const g = ctx.createLinearGradient(0, y + 7, 0, y + 7 + len);
+      g.addColorStop(0, 'rgba(200,236,255,0.95)');
+      g.addColorStop(1, 'rgba(120,190,240,0.2)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(ix - 1, y + 7);
+      ctx.lineTo(ix + 1, y + 7);
+      ctx.lineTo(ix, y + 7 + len);
+      ctx.closePath();
+      ctx.fill();
     }
-    ctx.fillStyle = ICE_DARK;
-    ctx.fillRect(x, y + 7, w, 1);
-    // little icicles under the ledge
-    if (((x >> 4) & 1) === 0) {
-      ctx.fillStyle = ICE_TOP;
-      ctx.fillRect(x + 5, y + 8, 1, 2);
-      ctx.fillRect(x + 11, y + 8, 1, 1);
+
+    // ice body
+    const body = ctx.createLinearGradient(0, y + 1, 0, y + 8);
+    body.addColorStop(0, '#9fdcff');
+    body.addColorStop(0.45, '#4fa6e3');
+    body.addColorStop(1, '#1d5aa6');
+    ctx.fillStyle = body;
+    ctx.fillRect(x, y + 1, w, 7);
+    // glints and cracks inside the ice
+    ctx.strokeStyle = 'rgba(235,250,255,0.55)';
+    ctx.lineWidth = 0.3;
+    ctx.beginPath();
+    const cx = x + hash(seed + 3) * w;
+    ctx.moveTo(cx, y + 3);
+    ctx.lineTo(cx + 2.5, y + 5.5);
+    ctx.lineTo(cx + 1.5, y + 7.5);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillRect(x, y + 3.2, w, 0.5);
+    ctx.fillStyle = 'rgba(10,30,80,0.45)';
+    ctx.fillRect(x, y + 7.4, w, 0.6);
+
+    // snow cap with soft lumps
+    const snow = ctx.createLinearGradient(0, y - 1.5, 0, y + 2.6);
+    snow.addColorStop(0, '#ffffff');
+    snow.addColorStop(1, '#cfe3f7');
+    ctx.fillStyle = snow;
+    ctx.beginPath();
+    ctx.moveTo(x, y + 2.6);
+    ctx.lineTo(x, y + 0.2);
+    const bumps = Math.max(1, Math.round(w / 5));
+    for (let i = 0; i < bumps; i++) {
+      const bx = x + (i + 0.5) * w / bumps;
+      ctx.quadraticCurveTo(bx, y - 0.8 - hash(seed + i + 20) * 0.9, x + (i + 1) * w / bumps, y + 0.2);
+    }
+    ctx.lineTo(x + w, y + 2.6);
+    ctx.quadraticCurveTo(x + w * 0.7, y + 3.4, x + w * 0.5, y + 2.4);
+    ctx.quadraticCurveTo(x + w * 0.25, y + 3.4, x, y + 2.6);
+    ctx.closePath();
+    ctx.fill();
+    // sparkle
+    if (hash(seed + 31) > 0.6) {
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.fillRect(x + hash(seed + 32) * w, y - 0.2, 0.5, 0.5);
     }
   }
 }
 
-const RAIL = '#e3a35c';
-const RUNG = '#b9772f';
-
 function ladderPart(ctx, x, y0, y1) {
   if (y1 <= y0) return;
-  ctx.fillStyle = RUNG;
-  for (let y = Math.ceil(y0 / 4) * 4; y < y1; y += 4) ctx.fillRect(x + 1, y, 6, 1);
-  ctx.fillStyle = RAIL;
-  ctx.fillRect(x, y0, 1, y1 - y0);
-  ctx.fillRect(x + 7, y0, 1, y1 - y0);
+  const rail = ctx.createLinearGradient(x, 0, x + 1.2, 0);
+  rail.addColorStop(0, '#6b3f17');
+  rail.addColorStop(0.5, '#c88a4a');
+  rail.addColorStop(1, '#6b3f17');
+  for (let y = Math.ceil(y0 / 4) * 4; y < y1; y += 4) {
+    ctx.fillStyle = '#5a3412';
+    ctx.fillRect(x + 1, y + 0.45, 6, 0.6);
+    ctx.fillStyle = '#b97a3c';
+    ctx.fillRect(x + 1, y - 0.3, 6, 0.8);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; // frost on the rung
+    ctx.fillRect(x + 1.5 + ((y * 3) % 3), y - 0.5, 2, 0.35);
+  }
+  ctx.fillStyle = rail;
+  ctx.fillRect(x - 0.2, y0, 1.2, y1 - y0);
+  ctx.save();
+  ctx.translate(7, 0);
+  ctx.fillRect(x - 0.2, y0, 1.2, y1 - y0);
+  ctx.restore();
 }
 
 export function drawLadder(ctx, L) {

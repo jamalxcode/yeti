@@ -21,8 +21,6 @@ html, body {
 }
 
 #screen {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
   background: #0a0f2c;
   box-shadow: 0 0 0 2px #151d47, 0 0 40px rgba(80, 140, 255, 0.15);
 }

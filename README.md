@@ -37,4 +37,4 @@ Play: **https://yeti.sala.company**
 
 Plain JavaScript modules and a 224×256 canvas. No build step. Serve the folder
 with any static server, e.g. `python3 -m http.server`, and open it in a browser.
-All art and sound is generated in code. Pushing to `main` deploys to GitHub Pages.
+All art (shaded vector drawing, rendered at up to 4x) and sound is generated in code. Pushing to `main` deploys to GitHub Pages.
