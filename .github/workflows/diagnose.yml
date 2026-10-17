@@ -10,6 +10,9 @@ jobs:
             echo "== $h"; dig +noall +answer "$h" ANY; dig +short "$h"; dig +short CNAME "$h"
           done
           echo "== nameservers"; dig +short NS sala.company
+          for ns in ns63.domaincontrol.com ns64.domaincontrol.com; do
+            echo "== @$ns"; dig +norec +noall +answer +authority @$ns yeti.sala.company ANY; dig +short @$ns yeti.sala.company CNAME
+          done
           echo "== wildcard test"; dig +short "zz-test-$RANDOM.sala.company"
           echo "== http"; curl -sS -m 15 -o /dev/null -w "%{http_code} %{redirect_url}\n" http://yeti.sala.company/ || true
           echo "== https"; curl -sS -m 15 -o /dev/null -w "%{http_code}\n" https://yeti.sala.company/ || true
