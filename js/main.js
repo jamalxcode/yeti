@@ -2,6 +2,7 @@ import { Game, W, H } from './game.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
 import { initSprites } from './sprites.js';
+import { Autopilot } from './autopilot.js';
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
@@ -24,6 +25,23 @@ addEventListener('touchstart', () => {
 }, { passive: true });
 
 const game = new Game(sfx, input);
+const autopilot = new Autopilot(game);
+
+// The CPU switches: "CPU PLAY" plays the whole game, "HELP ME" clears the current
+// stage and hands back. They live outside the canvas so they never steal a key.
+const btnCpu = document.getElementById('btn-cpu');
+const btnHelp = document.getElementById('btn-help');
+for (const [btn, key] of [[btnCpu, 'cpu'], [btnHelp, 'help']]) {
+  btn.addEventListener('pointerdown', (e) => { e.preventDefault(); sfx.unlock(); }); // keep focus off the button
+  btn.addEventListener('click', () => { input.edge[key] = true; }); // mouse, touch and keyboard alike
+}
+autopilot.onChange = (mode) => {
+  btnCpu.classList.toggle('on', mode === 'watch');
+  btnCpu.querySelector('b').textContent = mode === 'watch' ? 'ON' : 'OFF';
+  btnHelp.classList.toggle('on', mode === 'assist');
+  btnCpu.setAttribute('aria-pressed', mode === 'watch');
+  btnHelp.setAttribute('aria-pressed', mode === 'assist');
+};
 
 function resize() {
   const touchUi = document.body.classList.contains('touch');
@@ -58,6 +76,7 @@ function frame(now) {
   last = now;
   while (acc >= STEP) {
     input.update();
+    autopilot.step(input);
     game.update();
     acc -= STEP;
   }

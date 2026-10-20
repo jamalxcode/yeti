@@ -25,6 +25,39 @@ html, body {
   box-shadow: 0 0 0 2px #151d47, 0 0 40px rgba(80, 140, 255, 0.15);
 }
 
+#cpu-bar {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+#cpu-bar button {
+  font: 600 13px 'Fredoka', 'Trebuchet MS', sans-serif;
+  letter-spacing: 0.04em;
+  color: #c9d8ff;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(140, 210, 255, 0.45);
+  background: rgba(8, 18, 52, 0.7);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#cpu-bar button:hover { border-color: rgba(140, 210, 255, 0.9); color: #fff; }
+#cpu-bar button b { color: #7f9cff; font-weight: 700; }
+
+#cpu-bar button.on {
+  color: #fff;
+  border-color: #ffd84a;
+  background: rgba(70, 52, 8, 0.75);
+  box-shadow: 0 0 12px rgba(255, 216, 74, 0.45);
+}
+
+#cpu-bar button.on b { color: #ffd84a; }
+
 #touch { display: none; }
 
 body.touch #touch {

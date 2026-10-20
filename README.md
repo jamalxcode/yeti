@@ -14,6 +14,26 @@ Play: **https://yeti.sala.company**
 | Start | Enter | Start | Tap the screen |
 | Pause | P or Esc | Select | II |
 | Mute | M | | ♫ |
+| CPU plays | C | | CPU PLAY button |
+| CPU clears this stage | H | | HELP ME button |
+
+## Let the computer play
+
+**CPU PLAY** (or **C**) hands the penguin to the computer: it starts a game and
+plays stage after stage, level after level, at normal speed, and starts again
+after a game over. Press any game control (arrows, WASD, jump, the D-pad or
+JUMP on touch, a gamepad button) to take over instantly.
+
+**HELP ME** (or **H**) is for a stage you're stuck on: the computer clears the
+current stage and hands control back to you when the chick is rescued.
+
+The computer plays by looking ahead. Before each move it copies the world and
+runs the game's own physics a couple of seconds into the future for a few
+dozen candidate moves (follow the route, wait, jump now or a little later,
+back off, get off the ladder and jump) across several possible futures, then
+takes the move that survives and gets closest to the chick. Routes come from
+`js/nav.js`, which maps the ledges, ladders, jumps and ski-lift exits of each
+stage by test-firing the jump physics; the player itself is `js/autopilot.js`.
 
 ## How to play
 

@@ -18,6 +18,7 @@ const BELTS = [
 export default {
   id: 2,
   name: 'FISH FACTORY',
+  yetiPaces: true, // for the autopilot
 
   layout() {
     return {

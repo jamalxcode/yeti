@@ -19,6 +19,9 @@ const START_LIVES = 3;
 const EXTRA_LIFE_AT = 10000;
 const MAX_SEALS = 5;
 
+// Shared with the autopilot, which plans with the same physics.
+export const PHYS = { WALK, CLIMB, JUMP_V, GRAV, MAX_FALL, FALL_DEATH };
+
 const rand = (a, b) => a + Math.random() * (b - a);
 const pad = (n, len) => String(Math.max(0, Math.floor(n))).padStart(len, '0');
 const overlap = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
@@ -592,7 +595,32 @@ export class Game {
           drawTextC(ctx, 'PAUSED', W / 2, 118, '#ffffff', 2);
         }
     }
+    this.drawCpu(ctx);
     ctx.restore();
+  }
+
+  // Banner while the computer plays, and short messages when control changes hands.
+  drawCpu(ctx) {
+    const ap = this.autopilot;
+    if (!ap) return;
+    if (ap.active && this.state !== 'title') {
+      const touch = this.input.touchMode;
+      const text = ap.mode === 'assist'
+        ? 'CPU IS CLEARING THIS STAGE'
+        : touch ? 'CPU PLAYING  -  TOUCH TO TAKE OVER' : 'CPU PLAYING  -  ANY KEY TO TAKE OVER';
+      panel(ctx, 20, 245, 184, 10);
+      ctx.fillStyle = (this.frame >> 4) & 1 ? '#ffd84a' : '#ff9f3a';
+      ctx.beginPath(); ctx.arc(27, 250, 1.8, 0, Math.PI * 2); ctx.fill();
+      drawTextC(ctx, text, W / 2 + 3, 246.5, '#ffe9a8', 0.85);
+    }
+    if (ap.toast) {
+      const a = Math.min(1, ap.toast.t / 20);
+      ctx.save();
+      ctx.globalAlpha = a;
+      panel(ctx, 32, 118, 160, 20);
+      drawTextC(ctx, ap.toast.text, W / 2, 124, '#ffd84a', 1.1);
+      ctx.restore();
+    }
   }
 
   drawBackground(ctx) {
@@ -748,11 +776,13 @@ export class Game {
     S.drawChick(ctx, 178, 152, this.frame);
     S.drawPenguin(ctx, ['walk1', 'stand', 'walk2', 'stand'][(t >> 3) & 3], 62, 152, 1);
     S.drawSnowball(ctx, 96 + ((t * 0.5) % 34), 152, 'snow', -t / 6);
-    if ((t >> 5) & 1) drawTextC(ctx, this.input.touchMode ? 'TAP JUMP TO START' : 'PRESS START', W / 2, 176, '#ffffff', 1.4);
-    panel(ctx, 24, 196, 176, 26);
-    drawTextC(ctx, 'ARROWS MOVE / CLIMB   SPACE JUMP', W / 2, 200, '#a9c0ff');
-    drawTextC(ctx, 'ENTER START   P PAUSE   M MUTE', W / 2, 210, '#a9c0ff');
-    drawTextC(ctx, 'RESCUE THE CHICK FROM THE YETI!', W / 2, 232, '#e3ecff');
+    const cpu = this.autopilot && this.autopilot.active;
+    if ((t >> 5) & 1) drawTextC(ctx, cpu ? 'CPU IS ABOUT TO PLAY...' : this.input.touchMode ? 'TAP JUMP TO START' : 'PRESS START', W / 2, 172, cpu ? '#ffd84a' : '#ffffff', 1.4);
+    panel(ctx, 20, 191, 184, 36);
+    drawTextC(ctx, 'ARROWS MOVE / CLIMB   SPACE JUMP', W / 2, 194, '#a9c0ff');
+    drawTextC(ctx, 'ENTER START   P PAUSE   M MUTE', W / 2, 204, '#a9c0ff');
+    drawTextC(ctx, 'C  CPU PLAYS      H  CPU CLEARS A STAGE', W / 2, 214, '#ffd84a', 0.9);
+    drawTextC(ctx, 'RESCUE THE CHICK FROM THE YETI!', W / 2, 234, '#e3ecff');
     drawSnowfall(ctx, this.flakes);
   }
 

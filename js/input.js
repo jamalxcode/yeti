@@ -1,5 +1,7 @@
 // Keyboard, gamepad and on-screen touch controls merged into one state.
-// Held directions: left/right/up/down/jump. One-shot presses: jumpPressed, start, pause, mute.
+// Held directions: left/right/up/down/jump. One-shot presses: jumpPressed, start, pause, mute,
+// plus cpu / help (the autopilot switches) and humanPressed (a game control was
+// pressed, so a human takes over from the autopilot).
 
 const KEYMAP = {
   ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
@@ -13,7 +15,8 @@ export class Input {
     this.touch = { left: false, right: false, up: false, down: false, jump: false };
     this.pad = { left: false, right: false, up: false, down: false, jump: false };
     this.prevPadButtons = [];
-    this.edge = { jump: false, start: false, pause: false, mute: false };
+    this.edge = { jump: false, start: false, pause: false, mute: false, cpu: false, help: false, human: false };
+    this.prevPadDirs = '';
     this.onGesture = null;
     this.left = this.right = this.up = this.down = this.jump = false;
 
@@ -22,6 +25,7 @@ export class Input {
       this.gesture();
       if (act) {
         if (act === 'jump' && !e.repeat) this.edge.jump = true;
+        if (!e.repeat) this.edge.human = true;
         this.keys[act] = true;
         e.preventDefault();
       } else if (e.code === 'Enter') {
@@ -30,6 +34,10 @@ export class Input {
         this.edge.pause = true;
       } else if (e.code === 'KeyM') {
         this.edge.mute = true;
+      } else if (e.code === 'KeyC' && !e.repeat) {
+        this.edge.cpu = true;
+      } else if (e.code === 'KeyH' && !e.repeat) {
+        this.edge.help = true;
       }
     });
     addEventListener('keyup', (e) => {
@@ -74,7 +82,8 @@ export class Input {
       e.preventDefault();
       this.gesture();
       dpadId = e.pointerId;
-      dpad.setPointerCapture(e.pointerId);
+      this.edge.human = true;
+      try { dpad.setPointerCapture(e.pointerId); } catch { /* synthetic events have no pointer */ }
       setDir(e);
     });
     dpad.addEventListener('pointermove', (e) => { if (e.pointerId === dpadId) setDir(e); });
@@ -85,9 +94,10 @@ export class Input {
     btnJump.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this.gesture();
-      btnJump.setPointerCapture(e.pointerId);
+      try { btnJump.setPointerCapture(e.pointerId); } catch { /* synthetic events have no pointer */ }
       t.jump = true;
       this.edge.jump = true;
+      this.edge.human = true;
       btnJump.classList.add('down');
     });
     const jumpUp = () => { t.jump = false; btnJump.classList.remove('down'); };
@@ -111,7 +121,10 @@ export class Input {
     p.down = b(13) || ay > 0.5;
     p.jump = b(0) || b(1);
     const prev = this.prevPadButtons;
-    if ((b(0) && !prev[0]) || (b(1) && !prev[1])) { this.edge.jump = true; this.gesture(); }
+    if ((b(0) && !prev[0]) || (b(1) && !prev[1])) { this.edge.jump = true; this.edge.human = true; this.gesture(); }
+    const dirs = '' + +p.left + +p.right + +p.up + +p.down;
+    if (dirs !== this.prevPadDirs && dirs !== '0000') this.edge.human = true;
+    this.prevPadDirs = dirs;
     if (b(9) && !prev[9]) { this.edge.start = true; this.gesture(); }
     if (b(8) && !prev[8]) this.edge.pause = true;
     this.prevPadButtons = gp.buttons.map((x) => x.pressed);
@@ -127,6 +140,9 @@ export class Input {
     this.startPressed = this.edge.start;
     this.pausePressed = this.edge.pause;
     this.mutePressed = this.edge.mute;
-    this.edge.jump = this.edge.start = this.edge.pause = this.edge.mute = false;
+    this.cpuPressed = this.edge.cpu;
+    this.helpPressed = this.edge.help;
+    this.humanPressed = this.edge.human;
+    for (const k in this.edge) this.edge[k] = false;
   }
 }

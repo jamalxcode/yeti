@@ -18,6 +18,8 @@ const TOP = 7; // index of the top ledge the iceballs bounce along
 export default {
   id: 3,
   name: 'SKI LIFTS',
+  shafts: SHAFTS, // for the autopilot
+  liftSpeed: LIFT_SPEED,
 
   layout() {
     const platforms = [
